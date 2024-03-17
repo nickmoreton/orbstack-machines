@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Ubuntu
+echo "*** Ubuntu ***"
+sudo apt update --yes \
+    && sudo apt upgrade --yes --quiet --no-install-recommends \
+    && sudo apt install --yes --quiet --no-install-recommends \
+    build-essential \
+    libssl-dev libffi-dev \
+    pkg-config \
+    python3-dev python3-venv python3-pip \
+    wget curl nano git htop \
+    nginx
+
+# Docker
+if [ -z "$(which docker)" ]; then
+    echo "*** Docker ***"
+    curl -sSL https://get.docker.com | sh
+    sudo usermod -aG docker $USER
+fi
+
+# MySQL
+if [ -z "$(sudo docker ps -q -f name=mysql)" ]; then
+    echo "*** MySQL ***"
+    sudo docker run -d \
+        --restart unless-stopped \
+        --name mysql \
+        -e default-authentication-plugin=mysql_native_password \
+        -e MYSQL_ROOT_PASSWORD=example \
+        mysql:latest
+fi
+
+# Mailpit
+if [ -z "$(sudo docker ps -q -f name=mailpit)" ]; then
+    echo "*** Mailpit ***"
+    sudo docker run -d \
+        --restart unless-stopped \
+        --name=mailpit \
+        -p 8025:8025 \
+        -p 1025:1025 \
+        axllent/mailpit
+fi
+
+# Adminer
+if [ -z "$(sudo docker ps -q -f name=adminer)" ]; then
+    echo "*** Adminer ***"
+    sudo docker run -d \
+        --restart unless-stopped \
+        --name adminer \
+        --link mysql:db \
+        -p 8080:8080 \
+        adminer:latest
+fi
+
+# Virtualenv
+echo "*** Virtualenv ***"
+sudo python3 -m venv /venv
+sudo /venv/bin/pip install --upgrade \
+    pip \
+    setuptools \
+    wheel \
+    gunicorn \
+    wagtail
+
+# Repo
+echo "*** Repo ***"
+sudo git config --global init.defaultBranch main
+sudo mkdir -p /site.git
+sudo git init --bare /site.git/
+sudo cp pythonanywhere/post-receive /site.git/hooks/post-receive
+sudo chmod +x /site.git/hooks/post-receive
