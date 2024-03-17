@@ -1,28 +1,30 @@
 #!/bin/bash
 
-mkdir -p /home/nick/Site
+mkdir -p $HOME/Site
+source $HOME/venv/bin/activate
+export $(cat $HOME/Environment/.env)
 
 # checkout the latest version of the site
-git --work-tree=/home/nick/Site --git-dir=/home/nick/Repo/site.git checkout -f main
+git --work-tree=$HOME/Site --git-dir=$HOME/site.git checkout -f main
 
 # switch to site directory
-cd /home/nick/Site
+cd $HOME/Site
 # source /home/nick/.local/bin/virtualenvwrapper.sh
 # and activate the virtual environment
 # workon site
-source /home/nick/.virtualenvs/site/bin/activate
+# source /home/nick/.virtualenvs/site/bin/activate
 
 # install/update requirements
 echo INSTALL REQUIREMENTS
-pip install -r requirements.txt
+pip install -r requirements.txt -U
 
 # run migrations
 echo RUN MIGRATIONS
-python manage.py migrate --no-input
+python3 manage.py migrate --no-input
 
 # add/update static files
 echo COLLECT STATIC FILES
-python manage.py collectstatic --no-input
+python3 manage.py collectstatic --no-input
 
 # reload the web app by touching the wsgi file
 echo RELOAD THE WEB APP
