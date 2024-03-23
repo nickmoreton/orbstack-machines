@@ -1,67 +1,61 @@
 from invoke import task
-import subprocess
-import os
+import yaml
 
-if os.path.exists(".env"):
-    with open(".env", "r") as f:
-        for line in f.readlines():
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            var, value = line.strip().split("=", 1)
-            os.environ.setdefault(var, value)
-
-env = os.environ.copy()
-
-DEFAULT_MACHINE_SOURCE = "ubuntu"
-DEFAULT_MACHINE_NAME = "ubuntu-machine"
-DEFAULT_MACHINE_INIT_SCRIPT = "init-ubuntu-machine"
+from orb.models import OrbManager, UiManager
 
 
-def create_machine():
-    cmd = f"orb create {env.get('MACHINE_SOURCE', DEFAULT_MACHINE_SOURCE)} {env.get('MACHINE_NAME', DEFAULT_MACHINE_NAME)}"
-    return cmd.split(" ")
-
-
-def init_machine():
-    cmd = f"orb -m {env.get('MACHINE_NAME', DEFAULT_MACHINE_NAME)} ./{env.get('MACHINE_INIT_SCRIPT', DEFAULT_MACHINE_INIT_SCRIPT)}"
-    return cmd.split(" ")
-
-
-def setup_machine():
-    subprocess.run(create_machine())
-    subprocess.run(init_machine())
-
-
-def destroy_machine():
-    cmd = f"orb delete {env.get('MACHINE_NAME', DEFAULT_MACHINE_NAME)} --force"
-    subprocess.run(cmd.split(" "))
-
-
-def start_machine():
-    cmd = f"orb start {env.get('MACHINE_NAME', DEFAULT_MACHINE_NAME)}"
-    subprocess.run(cmd.split(" "))
-
-
-def stop_machine():
-    cmd = f"orb stop {env.get('MACHINE_NAME', DEFAULT_MACHINE_NAME)}"
-    subprocess.run(cmd.split(" "))
+config = yaml.safe_load(open("config.yaml"))
+orb_manager = OrbManager(config)
+ui_manager = UiManager(orb_manager)
 
 
 @task
-def build(context):
-    setup_machine()
+def build(c):
+    ui_manager.list_groups()
+
+    group_index = input("Enter group index: ")
+    if not group_index.isdigit():
+        print("Invalid index")
+        return
+
+    group_index = int(group_index) - 1  # convert to 0-based index
+
+    group = ui_manager.groups[int(group_index)]
+    print(f"You have selected: {group.name}")
+
+    build = input("Do you want to continue? (y/n): ")
+    if build.lower() != "y":
+        return
+
+    orb_manager.build_machines_for_group(group)
 
 
 @task
-def destroy(context):
-    destroy_machine()
+def destroy(c):
+    ui_manager.list_groups()
+
+    group_index = input("Enter group index: ")
+    if not group_index.isdigit():
+        print("Invalid index")
+        return
+
+    group_index = int(group_index) - 1  # convert to 0-based index
+
+    group = ui_manager.groups[int(group_index)]
+    print(f"You have selected: {group.name}")
+
+    destroy = input("Do you want to continue? (y/n): ")
+    if destroy.lower() != "y":
+        return
+
+    orb_manager.destroy_machines_for_group(group)
 
 
 @task
-def start(context):
-    start_machine()
+def status(c):
+    ui_manager.status()
 
 
 @task
-def stop(context):
-    stop_machine()
+def info(c):
+    ui_manager.info()

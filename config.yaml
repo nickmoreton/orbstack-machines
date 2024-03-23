@@ -1,0 +1,82 @@
+---
+# arranged in groups so a group can have many machines
+- group:
+    name: LAMP stack
+    machines:
+      - apache2-ubuntu
+      - mysql-ubuntu
+      - php-ubuntu
+
+- group:
+    name: Pythonanywhere
+    machines:
+      - python-ubuntu
+      - nginx-ubuntu
+      - mysql-ubuntu
+
+- group:
+    name: Dokku
+    machines:
+      - dokku-ubuntu
+
+- machine:
+    name: dokku-ubuntu
+    # command: orb create ubuntu dokku
+    init:
+      - sudo apt update
+      - sudo apt install docker -y
+      - wget https://raw.githubusercontent.com/dokku/dokku/v0.21.4/bootstrap.sh
+      - sudo DOKKU_TAG=v0.21.4 bash bootstrap.sh
+    distro: ubuntu
+    version: 20.04
+    arch:
+
+- machine:
+    name: apache2-ubuntu
+    # command: orb create ubuntu apache2
+    init:
+      - sudo apt update
+      - sudo apt install apache2 -y
+    distro: ubuntu
+    version:
+    arch:
+
+- machine:
+    name: mysql-ubuntu
+    # command: orb create ubuntu mysql
+    init:
+      - sudo apt update
+      - sudo apt install mysql-server -y
+    distro: ubuntu
+    version:
+    arch:
+
+- machine:
+    name: php-ubuntu
+    # command: orb create ubuntu php
+    init:
+      - sudo apt update
+      - sudo apt install php -y
+    distro: ubuntu
+    version:
+    arch:
+
+- machine:
+    name: python-ubuntu
+    # command: orb create ubuntu python
+    init:
+      - sudo apt update
+      - sudo apt install python -y
+    distro: ubuntu
+    version:
+    arch:
+
+- machine:
+    name: nginx-ubuntu
+    # command: orb create ubuntu nginx
+    init:
+      - sudo apt update
+      - sudo apt install nginx -y
+    distro: ubuntu
+    version:
+    arch:
