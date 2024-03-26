@@ -1,0 +1,164 @@
+---
+# arranged in groups so a group can have many machines
+- group:
+    name: Pythonanywhere
+    machines:
+      - mysql-ubuntu
+      - nginx-ubuntu
+      - python-ubuntu
+      - tooling
+
+- group:
+    name: Dokku
+    machines:
+      - dokku-ubuntu
+
+- machine:
+    name: mysql-ubuntu
+    build_vars: | # this is a template to replace the {{ build_vars }} in the init script
+      MYSQL_ROOT_PASSWORD=password
+      MYSQL_SERVER=mysql-ubuntu.orb.local
+    init: |
+      #!/bin/bash
+
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
+
+      # Build Vars
+      {{ build_vars }}
+
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
+
+      # Set root password for MySQL unattended installation
+      export DEBIAN_FRONTEND=noninteractive
+      echo "mysql-server-8.0 mysql-server/root_password password $MYSQL_ROOT_PASSWORD" | sudo debconf-set-selections
+      echo "mysql-server-8.0 mysql-server/root_password_again password $MYSQL_ROOT_PASSWORD" | sudo debconf-set-selections
+
+      # Install MySQL Server
+      sudo apt-get update
+      sudo apt-get install -y mysql-server-8.0
+
+      # Allow remote root access
+      sudo mysql -u root -p$MYSQL_ROOT_PASSWORD -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '$MYSQL_ROOT_PASSWORD';"
+      sudo mysql -u root -p$MYSQL_ROOT_PASSWORD -e "CREATE USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '$MYSQL_ROOT_PASSWORD';"
+      sudo mysql -u root -p$MYSQL_ROOT_PASSWORD -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;"
+      sudo mysql -u root -p$MYSQL_ROOT_PASSWORD -e "FLUSH PRIVILEGES;"
+
+      # Update MySQL to bind to all addresses
+      sudo sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mysql/mysql.conf.d/mysqld.cnf
+
+      # Restart MySQL service
+      sudo systemctl restart mysql
+
+    distro: ubuntu
+    version: jammy
+    arch:
+
+- machine:
+    name: nginx-ubuntu
+    build_vars:
+    init: |
+      #!/bin/bash
+
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
+
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
+      sudo apt -y install nginx
+
+    distro: ubuntu
+    version:
+    arch:
+    env:
+
+- machine:
+    name: python-ubuntu
+    build_vars:
+    init: |
+      #!/bin/bash
+
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
+
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
+      sudo apt -y install python3 python3-pip
+
+    distro: ubuntu
+    version:
+    arch:
+    env:
+
+- machine:
+    name: tooling
+    build_vars: | # this is a template to replace the {{ build_vars }} in the init script
+      MYSQL_ROOT_PASSWORD=password
+      MYSQL_SERVER=mysql-ubuntu.orb.local
+    init: |
+      #!/bin/bash
+
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
+
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
+      
+      # Docker for admin tools
+      curl -fsSL https://get.docker.com -o get-docker.sh
+      sudo sh get-docker.sh
+      sudo usermod -aG docker $USER
+
+      # Adminer
+      sudo docker run -d --restart always \
+        -e ADMINER_DEFAULT_SERVER=$MYSQL_SERVER \
+        -e ADMINER_DEFAULT_USERNAME='root' \
+        -e ADMINER_DEFAULT_PASSWORD=$MYSQL_ROOT_PASSWORD \
+        --name adminer \
+        -p 8080:8080 \
+        adminer:latest
+
+      # Mailpit
+      sudo docker run -d \
+        --restart unless-stopped \
+        --name=mailpit \
+        -p 8025:8025 \
+        -p 1025:1025 \
+        axllent/mailpit
+
+    distro: ubuntu
+    version:
+    arch:
+    env:
+
+- machine:
+    name: dokku
+    build_vars:
+    init: |
+      #!/bin/bash
+
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
+
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
+
+      # Install Dokku
+      wget -NP . https://dokku.com/bootstrap.sh
+      sudo DOKKU_TAG=v0.34.0 bash bootstrap.sh
+
+    distro: ubuntu
+    version: jammy
+    arch:
+    env:

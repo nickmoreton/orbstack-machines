@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# Ubuntu
-echo "*** Ubuntu ***"
-sudo apt update --yes \
-    && sudo apt upgrade --yes --quiet --no-install-recommends \
-    && sudo apt install --yes --quiet --no-install-recommends \
