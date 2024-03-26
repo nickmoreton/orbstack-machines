@@ -1,82 +1,85 @@
 ---
 # arranged in groups so a group can have many machines
 - group:
-    name: LAMP stack
-    machines:
-      - apache2-ubuntu
-      - mysql-ubuntu
-      - php-ubuntu
-
-- group:
     name: Pythonanywhere
     machines:
-      - python-ubuntu
-      - nginx-ubuntu
       - mysql-ubuntu
-
-- group:
-    name: Dokku
-    machines:
-      - dokku-ubuntu
-
-- machine:
-    name: dokku-ubuntu
-    # command: orb create ubuntu dokku
-    init:
-      - sudo apt update
-      - sudo apt install docker -y
-      - wget https://raw.githubusercontent.com/dokku/dokku/v0.21.4/bootstrap.sh
-      - sudo DOKKU_TAG=v0.21.4 bash bootstrap.sh
-    distro: ubuntu
-    version: 20.04
-    arch:
-
-- machine:
-    name: apache2-ubuntu
-    # command: orb create ubuntu apache2
-    init:
-      - sudo apt update
-      - sudo apt install apache2 -y
-    distro: ubuntu
-    version:
-    arch:
+      - nginx-python-uwsgi-ubuntu
 
 - machine:
     name: mysql-ubuntu
-    # command: orb create ubuntu mysql
-    init:
-      - sudo apt update
-      - sudo apt install mysql-server -y
+    build_vars: | # this is a template to replace the {{ build_vars }} in the init script
+      MYSQL_ROOT_PASSWORD=password
+      MYSQL_SERVER=mysql-ubuntu.orb.local
+    init: |
+      #!/bin/bash
+
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
+
+      # Build Vars
+      {{ build_vars }}
+
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
+
+      # Set root password for MySQL unattended installation
+      export DEBIAN_FRONTEND=noninteractive
+      echo "mysql-server-8.0 mysql-server/root_password password $MYSQL_ROOT_PASSWORD" | sudo debconf-set-selections
+      echo "mysql-server-8.0 mysql-server/root_password_again password $MYSQL_ROOT_PASSWORD" | sudo debconf-set-selections
+
+      # Install MySQL Server
+      sudo apt-get update
+      sudo apt-get install -y mysql-server-8.0
+
+      # Allow remote root access
+      sudo mysql -u root -p$MYSQL_ROOT_PASSWORD -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '$MYSQL_ROOT_PASSWORD';"
+      sudo mysql -u root -p$MYSQL_ROOT_PASSWORD -e "CREATE USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '$MYSQL_ROOT_PASSWORD';"
+      sudo mysql -u root -p$MYSQL_ROOT_PASSWORD -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;"
+      sudo mysql -u root -p$MYSQL_ROOT_PASSWORD -e "FLUSH PRIVILEGES;"
+
+      # Update MySQL to bind to all addresses
+      sudo sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mysql/mysql.conf.d/mysqld.cnf
+
+      # Restart MySQL service
+      sudo systemctl restart mysql
+      
+      # Docker for admin tools
+      curl -fsSL https://get.docker.com -o get-docker.sh
+      sudo sh get-docker.sh
+      sudo usermod -aG docker $USER
+
+      # Adminer
+      sudo docker run -d --restart always \
+        -e ADMINER_DEFAULT_SERVER=$MYSQL_SERVER \
+        -e ADMINER_DEFAULT_USERNAME='root' \
+        -e ADMINER_DEFAULT_PASSWORD=$MYSQL_ROOT_PASSWORD \
+        --name adminer \
+        -p 8080:8080 \
+        adminer:latest
+
     distro: ubuntu
-    version:
+    version: jammy
     arch:
 
 - machine:
-    name: php-ubuntu
-    # command: orb create ubuntu php
-    init:
-      - sudo apt update
-      - sudo apt install php -y
-    distro: ubuntu
-    version:
-    arch:
+    name: nginx-python-uwsgi-ubuntu
+    build_vars:
+    init: |
+      #!/bin/bash
 
-- machine:
-    name: python-ubuntu
-    # command: orb create ubuntu python
-    init:
-      - sudo apt update
-      - sudo apt install python -y
-    distro: ubuntu
-    version:
-    arch:
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
 
-- machine:
-    name: nginx-ubuntu
-    # command: orb create ubuntu nginx
-    init:
-      - sudo apt update
-      - sudo apt install nginx -y
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
+      sudo apt -y install python3-pip python3-venv python3-dev build-essential libssl-dev libffi-dev python3-setuptools
+      sudo apt -y install nginx
     distro: ubuntu
     version:
     arch:
+    env:

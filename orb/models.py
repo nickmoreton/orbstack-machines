@@ -1,7 +1,11 @@
 from dataclasses import dataclass
-import dis
+
+import pprint
+from re import sub
 import subprocess
 import json
+import tempfile
+import os
 
 
 @dataclass
@@ -12,6 +16,7 @@ class Machine:
     arch: str = ""
     status: str = ""
     exists: bool = ""
+    build_vars: str = ""
     init: list[str] = None
     orb_id: str = ""
 
@@ -57,6 +62,7 @@ class OrbManager:
                         distro=item.get("machine").get("distro"),
                         version=item.get("machine").get("version"),
                         arch=item.get("machine").get("arch"),
+                        build_vars=item.get("machine").get("build_vars"),
                         init=item.get("machine").get("init"),
                     )
                 )
@@ -121,17 +127,29 @@ class OrbManager:
         else:
             print(f"Machine {name} not found")
 
-    def create_machine(self, name, distro, version, arch, init):
+
+    def create_machine(self, name, distro, version, arch, vars, init):
         arch = "" if not arch else f"--arch {arch}"
-        init = "" if not init else f"--init {init}"
         distro = f"{distro}" if not version else f"{distro}:{version}"
-        cmd = f"orb create {distro} {name}"
-        subprocess.run(cmd.split(" "))
-        cmd = f"orb run -m {name} sudo apt update"
-        subprocess.run(cmd.split(" "))
-        # subprocess.run(f"orb ssh -t {name} 'ls -la exit'".split(" "), shell=True)
-        # subprocess.run(f"orb start {name}".split(" "))
-        # subprocess.run(f"orb ssh -t {name} 'sudo apt update && sudo apt upgrade -y'", shell=True)
+        cmd = f"orb create {distro} {name} {arch}"
+        subprocess.run(cmd, shell=True)
+        
+        # load init and write to a temporary file
+        if init:
+            if not vars:
+                vars = ""
+            init = init.replace("{{ build_vars }}", vars)
+
+            tmp_file = tempfile.NamedTemporaryFile()
+            with open(tmp_file.name, "w") as f:
+                f.write(init)
+                        
+            cmd = f"orb push -m {name} {tmp_file.name} /tmp/init.sh"
+            subprocess.run(cmd, shell=True)
+            subprocess.run(f"orb -m {name} sh /tmp/init.sh -a", shell=True)
+            print(f"Machine {name} created successfully")
+            print(f"{vars}")
+            
 
     def destroy_machine(self, name):
         cmd = f"orb delete {name} -f"
@@ -141,17 +159,15 @@ class OrbManager:
         print(f"Building machines for group {group.name}")
         for machine in group.machines:
             if machine.exists == "not found":
-                print(f"Creating machine {machine.name}")
-                self.create_machine(machine.name, machine.distro, machine.version, machine.arch, machine.init)
+                self.create_machine(machine.name, machine.distro, machine.version, machine.arch, machine.build_vars, machine.init)
             else:
                 print(f"Machine {machine.name} already exists")
 
     def destroy_machines_for_group(self, group):
         print(f"Destroying machines for group {group.name}")
         for machine in group.machines:
-            print(machine.exists)
             if machine.exists == "found":
-                print(f"Deleting machine {machine.name}")
+                # print(f"Deleting machine {machine.name}")
                 self.destroy_machine(machine.name)
             else:
                 print(f"Machine {machine.name} not found")
@@ -188,6 +204,7 @@ class UiManager:
                         distro=item.get("machine").get("distro"),
                         version=item.get("machine").get("version"),
                         arch=item.get("machine").get("arch"),
+                        build_vars=item.get("machine").get("build_vars"),
                         init=item.get("machine").get("init"),
                     )
                 )
@@ -224,4 +241,5 @@ class UiManager:
             print(f"Version: {machine.version}")
             print(f"Arch: {machine.arch}")
             print(f"Init: {machine.init}")
+            print(f"Env: {machine.env}")
             print()

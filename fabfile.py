@@ -1,11 +1,13 @@
 from invoke import task
 import yaml
+import pprint
 
 from orb.models import OrbManager, UiManager
 
 
 config = yaml.safe_load(open("config.yaml"))
 orb_manager = OrbManager(config)
+# pprint.pprint(orb_manager.config)
 ui_manager = UiManager(orb_manager)
 
 
