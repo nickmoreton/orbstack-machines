@@ -4,7 +4,14 @@
     name: Pythonanywhere
     machines:
       - mysql-ubuntu
-      - nginx-python-uwsgi-ubuntu
+      - nginx-ubuntu
+      - python-ubuntu
+      - tooling
+
+- group:
+    name: Dokku
+    machines:
+      - dokku-ubuntu
 
 - machine:
     name: mysql-ubuntu
@@ -45,6 +52,66 @@
 
       # Restart MySQL service
       sudo systemctl restart mysql
+
+    distro: ubuntu
+    version: jammy
+    arch:
+
+- machine:
+    name: nginx-ubuntu
+    build_vars:
+    init: |
+      #!/bin/bash
+
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
+
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
+      sudo apt -y install nginx
+
+    distro: ubuntu
+    version:
+    arch:
+    env:
+
+- machine:
+    name: python-ubuntu
+    build_vars:
+    init: |
+      #!/bin/bash
+
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
+
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
+      sudo apt -y install python3 python3-pip
+
+    distro: ubuntu
+    version:
+    arch:
+    env:
+
+- machine:
+    name: tooling
+    build_vars: | # this is a template to replace the {{ build_vars }} in the init script
+      MYSQL_ROOT_PASSWORD=password
+      MYSQL_SERVER=mysql-ubuntu.orb.local
+    init: |
+      #!/bin/bash
+
+      # Set the Server Timezone to CST
+      sudo echo "Europe/London" > /etc/timezone
+      sudo dpkg-reconfigure -f noninteractive tzdata
+
+      # Download and Install the Latest Updates for the OS
+      sudo apt update && sudo apt upgrade -y
+      sudo apt -y install htop nano curl wget -y
       
       # Docker for admin tools
       curl -fsSL https://get.docker.com -o get-docker.sh
@@ -60,12 +127,21 @@
         -p 8080:8080 \
         adminer:latest
 
+      # Mailpit
+      sudo docker run -d \
+        --restart unless-stopped \
+        --name=mailpit \
+        -p 8025:8025 \
+        -p 1025:1025 \
+        axllent/mailpit
+
     distro: ubuntu
-    version: jammy
+    version:
     arch:
+    env:
 
 - machine:
-    name: nginx-python-uwsgi-ubuntu
+    name: dokku
     build_vars:
     init: |
       #!/bin/bash
@@ -77,9 +153,12 @@
       # Download and Install the Latest Updates for the OS
       sudo apt update && sudo apt upgrade -y
       sudo apt -y install htop nano curl wget -y
-      sudo apt -y install python3-pip python3-venv python3-dev build-essential libssl-dev libffi-dev python3-setuptools
-      sudo apt -y install nginx
+
+      # Install Dokku
+      wget -NP . https://dokku.com/bootstrap.sh
+      sudo DOKKU_TAG=v0.34.0 bash bootstrap.sh
+
     distro: ubuntu
-    version:
+    version: jammy
     arch:
     env:
